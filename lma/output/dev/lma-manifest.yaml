@@ -1,0 +1,940 @@
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: addons
+  name: addons
+spec:
+  chart:
+    name: taco-addons-lma
+    repository: http://172.27.1.86:8879/charts
+    version: 1.0.6
+  releaseName: addons
+  targetNamespace: lma
+  values:
+    grafanaDashboard:
+      enabled: false
+    metricbeat:
+      enabled: false
+      loglevel: error
+    prometheusRules:
+      aggregation:
+        enabled: true
+      alert:
+        enabled: false
+    serviceMonitor:
+      calico:
+        enabled: true
+        interval: 10s
+      ceph:
+        enabled: false
+        interval: 10s
+      grafana:
+        enabled: false
+      kubeStateMetrics:
+        interval: 10s
+      kubelet:
+        enabled: true
+        interval: 30s
+      nodeExporter:
+        interval: 10s
+      processExporter:
+        enabled: true
+        interval: 10s
+        selector:
+          matchLabels:
+            application: process_exporter
+            component: metrics
+            release_group: prometheus-process-exporter
+      trident:
+        enabled: false
+        interval: 30s
+    tacoWatcher:
+      rbac:
+        create: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: elasticsearch-kibana
+  name: elasticsearch-kibana
+spec:
+  chart:
+    name: elasticsearch-operator
+    repository: http://172.27.1.86:8879/charts
+    version: 1.0.3
+  releaseName: elasticsearch-kibana
+  targetNamespace: lma
+  values:
+    customResource:
+      elasticsearch:
+        count: 3
+        enabled: true
+        nodeSets:
+          client:
+            count: 1
+            enabled: true
+            javaOpts: -Xms4g -Xmx4g
+            limitCpu: 2
+            limitMem: 4Gi
+            nodeSelector:
+              taco-lma: enabled
+            pvc:
+              size: 5Gi
+              storageClassName: rbd
+          hotdata:
+            count: 3
+            enabled: true
+            javaOpts: -Xms4g -Xmx4g
+            limitCpu: 2
+            limitMem: 4Gi
+            nodeSelector:
+              taco-lma: enabled
+            pvc:
+              size: 40Gi
+              storageClassName: rbd
+          master:
+            count: 3
+            enabled: true
+            javaOpts: -Xms2g -Xmx2g
+            limitCpu: 2
+            limitMem: 2Gi
+            nodeSelector:
+              taco-lma: enabled
+            pvc:
+              size: 1Gi
+              storageClassName: rbd
+          warmdata:
+            count: 2
+            enabled: false
+            javaOpts: -Xms2g -Xmx2g
+            limitCpu: 1
+            limitMem: 2Gi
+            nodeSelector:
+              taco-lma: enabled
+            pvc:
+              size: 200Gi
+              storageClassName: ceph
+        version: 7.5.1
+      kibana:
+        enabled: true
+        http:
+          service:
+            spec:
+              ports:
+              - name: http
+                nodePort: 30001
+                port: 5601
+                targetPort: 5601
+              type: NodePort
+          tls:
+            selfSignedCertificate:
+              disabled: true
+        limitCpu: 4
+        limitMem: 8Gi
+        nodeSelector:
+          taco-lma: enabled
+        version: 7.5.1
+    elasticsearchOperator:
+      enabled: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: elasticsearch-operator
+  name: elasticsearch-operator
+spec:
+  chart:
+    name: elasticsearch-operator
+    repository: http://172.27.1.86:8879/charts
+    version: 1.0.3
+  releaseName: elasticsearch-operator
+  targetNamespace: elastic-system
+  values:
+    customResource:
+      elasticsearch:
+        enabled: false
+      kibana:
+        enabled: false
+    elasticsearchOperator:
+      createCustomResource: true
+      createNamespace: false
+      enabled: true
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: fed-addons
+  name: fed-addons
+spec:
+  chart:
+    name: taco-addons-lma
+    repository: http://172.27.1.86:8879/charts
+    version: 1.0.6
+  releaseName: fed-addons
+  targetNamespace: fed
+  values:
+    grafanaDashboard:
+      enabled: true
+      sidecar:
+        datasources:
+          prometheusAddress: fed-master-prometheus:9090
+    kibanaInit:
+      enabled: true
+      url: http://taco-kibana-dashboard-kb-http.lma.svc.cluster.local:5601
+    metricbeat:
+      addtionalModules: []
+      elasticsearch:
+        host: https://taco-elasticsearch-es-http.lma.svc.cluster.local:9200
+        password: tacoword
+        username: elastic
+      enabled: true
+      kibana:
+        host: taco-kibana-dashboard-kb-http.lma.svc.cluster.local:5601
+      prometheus:
+        hosts:
+        - fed-master-prometheus.fed.svc.cluster.local:9090
+    prometheusRules:
+      aggregation:
+        enabled: false
+      alert:
+        enabled: true
+    serviceMonitor:
+      calico:
+        enabled: false
+      ceph:
+        enabled: false
+      federations:
+      - interval: 10s
+        name: dev-federate
+        namespace: lma
+        port: 9090
+        selector:
+          app: prometheus
+          prometheus: lma-prometheus
+      grafana:
+        enabled: true
+        interval: 10s
+      kubeStateMetrics:
+        enabled: false
+      nodeExporter:
+        enabled: false
+      processExporter:
+        enabled: false
+    tacoWatcher:
+      host: taco-watcher.fed.svc.cluster.local
+      joinCluster:
+        body:
+          grafanaUrl: http://grafana.fed.svc.cluster.local
+          isMain: true
+          k8sUrl: https://kubernetes.default.svc.cluster.local
+          kibanaUrl: http://taco-kibana-dashboard-kb-http.lma.svc.cluster.local:5601
+          menu:
+            enabled: true
+        enabled: false
+      port: 32000
+      rbac:
+        create: true
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: fluentbit
+  name: fluentbit
+spec:
+  chart:
+    name: fluentbit-operator
+    repository: http://172.27.1.86:8879/charts
+    skipDepUpdate: true
+    version: 1.0.9
+  releaseName: fluentbit
+  targetNamespace: lma
+  values:
+    fluentbit:
+      alerts:
+        makeAlertRule: true
+      clusterName: cluster.local
+      daemonset:
+        spec:
+          pod:
+            tolerations:
+            - key: node-role.kubernetes.io/master
+              operator: Exists
+            - key: node-role.kubernetes.io/node
+              operator: Exists
+      enabled: true
+      esTemplate:
+        enabled: true
+        ilms:
+        - json:
+            policy:
+              phases:
+                delete:
+                  actions:
+                    delete: {}
+                  min_age: 14d
+                hot:
+                  actions:
+                    rollover:
+                      max_age: 1d
+                      max_docs: 5000000000
+                      max_size: 30gb
+                    set_priority:
+                      priority: 100
+          name: hot-delete-14days
+        - json:
+            policy:
+              phases:
+                delete:
+                  actions:
+                    delete: {}
+                  min_age: 7d
+                hot:
+                  actions:
+                    rollover:
+                      max_age: 1d
+                      max_docs: 5000000000
+                      max_size: 30gb
+                    set_priority:
+                      priority: 100
+          name: hot-delete-7days
+        - json:
+            policy:
+              phases:
+                delete:
+                  actions:
+                    delete: {}
+                  min_age: 3h
+                hot:
+                  actions:
+                    rollover:
+                      max_age: 1h
+                      max_docs: 5000000000
+                      max_size: 30gb
+                    set_priority:
+                      priority: 100
+          name: hot-delete-3hour
+        password: tacoword
+        templates:
+        - json:
+            index_patterns: platform*
+            settings:
+              index.lifecycle.name: hot-delete-14days
+              index.lifecycle.rollover_alias: platform
+              number_of_replicas: 1
+              number_of_shards: 3
+              refresh_interval: 30s
+          name: platform
+        - json:
+            index_patterns: container*
+            settings:
+              index.lifecycle.name: hot-delete-3hour
+              index.lifecycle.rollover_alias: container
+              number_of_replicas: 1
+              number_of_shards: 3
+              refresh_interval: 30s
+          name: application
+        - json:
+            index_patterns: syslog*
+            settings:
+              index.lifecycle.name: hot-delete-14days
+              index.lifecycle.rollover_alias: syslog
+              number_of_replicas: 1
+              number_of_shards: 2
+              refresh_interval: 30s
+          name: syslog
+        url: https://taco-elasticsearch-es-http.lma.svc.cluster.local:9200
+        username: elastic
+      exclude:
+      - key: $kubernetes['container_name']
+        value: kibana|elasticsearch|fluent-bit
+      nodeSelector:
+        taco-lma: enabled
+      outputs:
+        es:
+          enabled: true
+          host: taco-elasticsearch-es-http.lma.svc.cluster.local
+          password: dGFjb3dvcmQ=
+          port: 9200
+          username: ZWxhc3RpYw==
+        http:
+          enabled: true
+        kafka:
+          broker: YOUR_BORKER_INFO
+          enabled: false
+          topic: YOUR_TACO_LOG_INFO
+      targetLogs:
+      - bufferChunkSize: 2M
+        bufferMaxSize: 5M
+        do_not_store_as_default: true
+        index: container
+        memBufLimit: 20MB
+        multi_index:
+        - index: platform
+          key: $kubernetes['namespace_name']
+          value: kube-system|lma|fed|argo|openstack|istio-system|istio-services|trident|registry
+        name: dockerlog
+        parser: docker
+        path: /var/log/containers/*.log
+        tag: kube.*
+        type: fluent
+      - index: syslog
+        name: syslog
+        parser: syslog-rfc5424
+        path: /var/log/syslog
+        tag: syslog.*
+        type: syslog
+    fluentbitOperator:
+      cleanupCustomResource: false
+      createCustomResource: false
+      enabled: false
+    global:
+      base_cluster_url: cluster.local
+      nodeSelector:
+        taco-lma: enabled
+    logExporter:
+      enabled: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: fluentbit-operator
+  name: fluentbit-operator
+spec:
+  chart:
+    name: fluentbit-operator
+    repository: http://172.27.1.86:8879/charts
+    skipDepUpdate: true
+    version: 1.0.9
+  releaseName: fluentbit-operator
+  targetNamespace: lma
+  values:
+    fluentbit:
+      enabled: false
+    fluentbitOperator:
+      cleanupCustomResource: true
+      createCustomResource: true
+      enabled: true
+      nodeSelector:
+        taco-lma: enabled
+      resources:
+        limits:
+          cpu: "2"
+          memory: 200Mi
+        requests:
+          cpu: 100m
+          memory: 20Mi
+    global:
+      base_cluster_url: cluster.local
+    logExporter:
+      enabled: true
+      nodeSelector:
+        taco-lma: enabled
+      serviceMonitor:
+        enabled: false
+        interval: 1m
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: grafana
+  name: grafana
+spec:
+  chart:
+    name: grafana
+    repository: http://172.27.1.86:8879/charts
+    version: 5.0.7
+  releaseName: grafana
+  targetNamespace: fed
+  values:
+    adminPassword: password
+    grafana.ini:
+      plugins:
+        devopsprodigy-kubegraf-app: true
+        grafana-piechart-panel: true
+        vonage-status-panel: true
+    persistence:
+      enabled: true
+      size: 10G
+      storageClassName: rbd
+    plugins:
+    - vonage-status-panel
+    - grafana-piechart-panel
+    - devopsprodigy-kubegraf-app
+    service:
+      nodePort: 30009
+      type: NodePort
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+      datasources:
+        enabled: true
+        label: grafana_datasource
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: kube-state-metrics
+  name: kube-state-metrics
+spec:
+  chart:
+    name: kube-state-metrics
+    repository: http://172.27.1.86:8879/charts
+    version: 2.8.2
+  releaseName: kube-state-metrics
+  targetNamespace: lma
+  values:
+    collectors:
+      verticalpodautoscalers: false
+    nodeSelector:
+      taco-lma: enabled
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: kubernetes-event-exporter
+  name: kubernetes-event-exporter
+spec:
+  chart:
+    name: kubernetes-event-exporter
+    repository: http://172.27.1.86:8879/charts
+    version: 1.0.0
+  releaseName: kubernetes-event-exporter
+  targetNamespace: lma
+  values:
+    conf:
+      additionalReceivers: {}
+      additionalRoutes: {}
+      default:
+        additionalDefaultReceivers: []
+        hosts:
+        - https://taco-elasticsearch-es-http.lma.svc.cluster.local:9200
+        index: kube-events
+        password: tacoword
+        user: elastic
+      logFormat: json
+      logLevel: error
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus
+  name: prometheus
+spec:
+  chart:
+    name: prometheus-operator
+    repository: http://172.27.1.86:8879/charts
+    version: 8.12.3
+  releaseName: prometheus
+  targetNamespace: lma
+  values:
+    alertmanager:
+      enabled: false
+    coreDns:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    defaultRules:
+      create: false
+    fullnameOverride: lma
+    grafana:
+      enabled: false
+    kubeApiServer:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    kubeControllerManager:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    kubeDns:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    kubeEtcd:
+      enabled: true
+      endpoints:
+      - 172.27.1.222
+      serviceMonitor:
+        caFile: /etc/prometheus/secrets/etcd-client-cert/etcd-ca
+        certFile: /etc/prometheus/secrets/etcd-client-cert/etcd-client
+        insecureSkipVerify: false
+        interval: 10s
+        keyFile: /etc/prometheus/secrets/etcd-client-cert/etcd-client-key
+        scheme: https
+        serverName: localhost
+    kubeProxy:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    kubeScheduler:
+      enabled: true
+      serviceMonitor:
+        interval: 10s
+    kubeStateMetrics:
+      enabled: false
+    kubelet:
+      enabled: false
+    nodeExporter:
+      enabled: false
+    prometheus:
+      prometheusSpec:
+        externalLabels:
+          taco_cluster: dev
+        nodeSelector:
+          taco-lma: enabled
+        replicas: 1
+        retention: 2d
+        ruleNamespaceSelector:
+          matchLabels:
+            name: lma
+        ruleSelectorNilUsesHelmValues: false
+        secrets:
+        - etcd-client-cert
+        serviceMonitorNamespaceSelector:
+          matchLabels:
+            name: lma
+        serviceMonitorSelectorNilUsesHelmValues: false
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+              storageClassName: rbd
+      service:
+        nodePort: 30008
+        type: NodePort
+    prometheusOperator:
+      admissionWebhooks:
+        enabled: false
+      cleanupCustomResource: false
+      cleanupCustomResourceBeforeInstall: false
+      createCustomResource: false
+      enabled: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-adapter
+  name: prometheus-adapter
+spec:
+  chart:
+    name: prometheus-adapter
+    repository: http://172.27.1.86:8879/charts
+    version: 2.1.3
+  releaseName: prometheus-adapter
+  targetNamespace: lma
+  values:
+    nodeSelector:
+      taco-lma: enabled
+    prometheus:
+      port: 9090
+      url: http://lma-prometheus
+    rules:
+      default: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-fed-master
+  name: prometheus-fed-master
+spec:
+  chart:
+    name: prometheus-operator
+    repository: http://172.27.1.86:8879/charts
+    version: 8.12.3
+  releaseName: prometheus-fed-master
+  targetNamespace: fed
+  values:
+    alertmanager:
+      alertmanagerSpec:
+        nodeSelector:
+          taco-lma: enabled
+        retention: 120h
+      config:
+        global:
+          hipchat_api_url: null
+          hipchat_auth_token: null
+          slack_api_url: https://hooks.slack.com/services/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
+          smtp_auth_password: null
+          smtp_auth_username: null
+          smtp_from: null
+          smtp_smarthost: null
+        receivers:
+        - name: default-alert
+          slack_configs:
+          - channel: '#doj-noti'
+            send_resolved: true
+            text: |-
+              {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len .Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }}
+                {{ range .Alerts.Firing }}{{ .Annotations.message }}{{ end }}{{ range .Alerts.Resolved }}{{ .Annotations.message }}{{ end }}
+              {{ else }}
+              {{ if gt (len .Alerts.Firing) 0 }}
+              *Alerts Firing:*
+                {{ range .Alerts.Firing }}- {{ .Labels.alertname  }}: {{ .Annotations.message }}
+              {{ end }}{{ end }}
+              {{ if gt (len .Alerts.Resolved) 0 }}
+              *Alerts Resolved:*
+                {{ range .Alerts.Resolved }}- {{ .Labels.alertname }}: {{ .Annotations.message }}
+              {{ end }}{{ end }}
+              {{ end }}
+            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing
+              | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved)
+              0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1))
+              }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range
+              .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
+            username: Prometheus
+        - name: slack-alert
+          slack_configs:
+          - channel: '#doj-critical-alert'
+            send_resolved: true
+            text: |-
+              {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len .Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }}
+                {{ range .Alerts.Firing }}{{ .Annotations.message }}{{ end }}{{ range .Alerts.Resolved }}{{ .Annotations.message }}{{ end }}
+              {{ else }}
+              {{ if gt (len .Alerts.Firing) 0 }}
+              *Alerts Firing:*
+                {{ range .Alerts.Firing }}- {{ .Labels.alertname }}: {{ .Annotations.message }}
+              {{ end }}{{ end }}
+              {{ if gt (len .Alerts.Resolved) 0 }}
+              *Alerts Resolved:*
+                {{ range .Alerts.Resolved }}- {{ .Labels.alertname }}: {{ .Annotations.message }}
+              {{ end }}{{ end }}
+              {{ end }}
+            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing
+              | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved)
+              0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1))
+              }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range
+              .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
+            username: Prometheus
+        - name: telegram-alert
+          webhook_configs:
+          - send_resolved: true
+            url: http://prometheus-bot:9087/alert/-GROUP_ID
+        route:
+          group_by:
+          - alertname
+          group_wait: 10s
+          receiver: default-alert
+          repeat_interval: 1h
+          routes:
+          - group_by:
+            - alertname
+            match:
+              severity: page
+            receiver: slack-alert
+      enabled: true
+    coreDns:
+      enabled: false
+    defaultRules:
+      create: false
+    fullnameOverride: fed-master
+    grafana:
+      enabled: false
+    kubeApiServer:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeDns:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeStateMetrics:
+      enabled: false
+    kubelet:
+      enabled: false
+    nodeExporter:
+      enabled: false
+    prometheus:
+      prometheusSpec:
+        externalLabels:
+          taco_cluster: federation-master
+        nodeSelector:
+          taco-lma: enabled
+        replicas: 1
+        ruleNamespaceSelector:
+          matchLabels:
+            name: fed
+        ruleSelectorNilUsesHelmValues: false
+        serviceMonitorNamespaceSelector:
+          matchLabels:
+            name: fed
+        serviceMonitorSelectorNilUsesHelmValues: false
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 500Gi
+              storageClassName: rbd
+      service:
+        nodePort: 30018
+        type: NodePort
+    prometheusOperator:
+      admissionWebhooks:
+        enabled: false
+      cleanupCustomResource: false
+      cleanupCustomResourceBeforeInstall: false
+      createCustomResource: false
+      enabled: false
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-node-exporter
+  name: prometheus-node-exporter
+spec:
+  chart:
+    name: prometheus-node-exporter
+    repository: http://172.27.1.86:8879/charts
+    version: 1.9.1
+  releaseName: prometheus-node-exporter
+  targetNamespace: lma
+  values:
+    extraArgs:
+    - --no-collector.hwmon
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-operator
+  name: prometheus-operator
+spec:
+  chart:
+    name: prometheus-operator
+    repository: http://172.27.1.86:8879/charts
+    version: 8.12.3
+  releaseName: prometheus-operator
+  targetNamespace: lma
+  values:
+    alertmanager:
+      enabled: false
+    coreDns:
+      enabled: false
+    defaultRules:
+      create: false
+    grafana:
+      enabled: false
+    kubeApiServer:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeDns:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeStateMetrics:
+      enabled: false
+    kubelet:
+      enabled: false
+    nodeExporter:
+      enabled: false
+    prometheus:
+      enabled: false
+    prometheusOperator:
+      cleanupCustomResource: true
+      cleanupCustomResourceBeforeInstall: true
+      createCustomResource: true
+      enabled: true
+      nodeSelector:
+        taco-lma: enabled
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-process-exporter
+  name: prometheus-process-exporter
+spec:
+  chart:
+    name: prometheus-process-exporter
+    repository: http://172.27.1.86:8879/charts
+    skipDepUpdate: true
+    version: 0.1.0
+  releaseName: prometheus-process-exporter
+  targetNamespace: lma
+  values:
+    conf:
+      processes: dockerd,kubelet,kube-proxy,ntpd
+    images:
+      pull_policy: Always
+    labels:
+      process_exporter:
+        process_selector_key: process-exporter
+        process_selector_value: enabled
+    pod:
+      lifecycle:
+        upgrades:
+          daemonsets:
+            process_exporter:
+              max_unavailable: 30%
+      mandatory_access_control:
+        type: null
+      tolerations:
+        process_exporter:
+          enabled: true
+          tolerations:
+          - key: node-role.kubernetes.io/master
+            operator: Exists
+          - key: node-role.kubernetes.io/node
+            operator: Exists
+  wait: true
+---
+apiVersion: helm.fluxcd.io/v1
+kind: HelmRelease
+metadata:
+  labels:
+    name: prometheus-pushgateway
+  name: prometheus-pushgateway
+spec:
+  chart:
+    name: prometheus-pushgateway
+    repository: http://172.27.1.86:8879/charts
+    version: 1.3.0
+  releaseName: prometheus-pushgateway
+  targetNamespace: lma
+  values:
+    nodeSelector:
+      taco-lma: enabled
+    service:
+      nodePort: 30010
+      type: NodePort
+  wait: true
