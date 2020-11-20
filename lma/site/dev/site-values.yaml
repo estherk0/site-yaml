@@ -7,7 +7,7 @@ global:
   nodeSelector:
     taco-lma: enabled
   clusterName: cluster.local
-  storageClassName: test
+  storageClassName: tesss
   repository: http://172.27.1.86:8879/charts
   serviceScrapeInterval: 30s
 
