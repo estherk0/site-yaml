@@ -28,7 +28,7 @@ jobs:
           echo $(ls lma)
 
       - name: Run kustomize build
-        uses: jabbukka/site-yaml-actions@v1
+        uses: jabbukka/site-yaml-actions@master
         with:
           targetDir: './lma/dev'
           outputFile: './lma/output/lma-manifest.yaml'
