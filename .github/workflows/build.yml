@@ -23,8 +23,13 @@ jobs:
 
       - name: Fetch base yaml from git
         run: |
+          echo $(ls)
+          
+          
+          echo $(pwd)
+          
           git clone https://github.com/openinfradev/decapod-yaml.git
-          cp -r decapod-yaml/lma/base site-yaml/lma
+          cp -r decapod-yaml/lma/base lma
 
       - name: Run kustomize build
         uses: jabbukka/site-yaml-actions@v1
