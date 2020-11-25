@@ -22,13 +22,30 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Fetch base yaml from git
-        run: |
-          git clone https://github.com/openinfradev/decapod-yaml.git
-          cp -r decapod-yaml/lma/base lma
-          echo $(ls lma)
+        run: git clone https://github.com/openinfradev/decapod-yaml.git
 
       - name: Run kustomize build
-        uses: jabbukka/site-yaml-actions@master
-        with:
-          targetDir: './lma/dev'
-          outputFile: './lma/output/lma-manifest.yaml'
+        run: |
+          for APP_NAME in 'lma openstack'
+          do
+            echo ">>> Start to build for $APP_NAME <<<"
+            cp -r decapod-yaml/$APP_NAME/base $APP_NAME
+
+            for i in `ls ${APP_NAME}/site`
+            do
+               OUTPUT_PATH="$APP_NAME/output/$i/$APP_NAME-manifest.yaml"
+               echo "[$i] Clean up existing $APP_NAME-manifest.yaml"
+               rm -f $OUTPUT_PATH
+               mkdir -p $APP_NAME/output/$i/
+               echo "[$i] Rendering $APP_NAME-manifest.yaml for $i site"
+               docker run -it -v $(pwd)/$APP_NAME:/$APP_NAME --name kustomize-build-$APP_NAME sktdev/decapod-kustomize:latest kustomize build --enable_alpha_plugins /$APP_NAME/site/$i -o /$APP_NAME/output/$i/$APP_NAME-manifest.yaml;
+         
+               if [ -f "$OUTPUT_PATH" ]; then
+                 echo "[$i] Successfully Completed!"
+               else
+                 echo "[$i] Failed to render $APP_NAME-manifest.yaml"
+                 break
+               fi
+               docker rm -f kustomize-build-$APP_NAME
+            done
+          done
