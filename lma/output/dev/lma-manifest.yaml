@@ -74,45 +74,49 @@ spec:
         enabled: true
         nodeSets:
           client:
-            count: 1
-            enabled: true
+            count: "1"
+            enabled: "true"
             javaOpts: -Xms4g -Xmx4g
-            limitCpu: 2
+            limitCpu: "2"
             limitMem: 4Gi
             nodeSelector:
+              TO_BE_FIXED: TO_BE_FIXED
               taco-lma: enabled
             pvc:
               size: 5Gi
-              storageClassName: rbd
+              storageClassName: tess
           hotdata:
             count: 3
             enabled: true
             javaOpts: -Xms4g -Xmx4g
-            limitCpu: 2
+            limitCpu: "2"
             limitMem: 4Gi
             nodeSelector:
+              TO_BE_FIXED: TO_BE_FIXED
               taco-lma: enabled
             pvc:
               size: 40Gi
-              storageClassName: rbd
+              storageClassName: tess
           master:
             count: 3
             enabled: true
             javaOpts: -Xms2g -Xmx2g
-            limitCpu: 2
+            limitCpu: "2"
             limitMem: 2Gi
             nodeSelector:
+              TO_BE_FIXED: TO_BE_FIXED
               taco-lma: enabled
             pvc:
               size: 1Gi
-              storageClassName: rbd
+              storageClassName: tess
           warmdata:
             count: 2
-            enabled: false
+            enabled: "false"
             javaOpts: -Xms2g -Xmx2g
-            limitCpu: 1
+            limitCpu: "1"
             limitMem: 2Gi
             nodeSelector:
+              TO_BE_FIXED: TO_BE_FIXED
               taco-lma: enabled
             pvc:
               size: 200Gi
@@ -132,9 +136,10 @@ spec:
           tls:
             selfSignedCertificate:
               disabled: true
-        limitCpu: 4
+        limitCpu: "4"
         limitMem: 8Gi
         nodeSelector:
+          TO_BE_FIXED: TO_BE_FIXED
           taco-lma: enabled
         version: 7.5.1
     elasticsearchOperator:
@@ -357,6 +362,7 @@ spec:
       - key: $kubernetes['container_name']
         value: kibana|elasticsearch|fluent-bit
       nodeSelector:
+        TO_BE_FIXED: TO_BE_FIXED
         taco-lma: enabled
       outputs:
         es:
@@ -399,6 +405,7 @@ spec:
     global:
       base_cluster_url: cluster.local
       nodeSelector:
+        TO_BE_FIXED: TO_BE_FIXED
         taco-lma: enabled
     logExporter:
       enabled: false
@@ -426,6 +433,7 @@ spec:
       createCustomResource: true
       enabled: true
       nodeSelector:
+        TO_BE_FIXED: TO_BE_FIXED
         taco-lma: enabled
       resources:
         limits:
@@ -439,6 +447,7 @@ spec:
     logExporter:
       enabled: true
       nodeSelector:
+        TO_BE_FIXED: TO_BE_FIXED
         taco-lma: enabled
       serviceMonitor:
         enabled: false
@@ -468,7 +477,7 @@ spec:
     persistence:
       enabled: true
       size: 10G
-      storageClassName: rbd
+      storageClassName: tess
     plugins:
     - vonage-status-panel
     - grafana-piechart-panel
@@ -502,6 +511,7 @@ spec:
     collectors:
       verticalpodautoscalers: false
     nodeSelector:
+      TO_BE_FIXED: TO_BE_FIXED
       taco-lma: enabled
   wait: true
 ---
@@ -621,7 +631,7 @@ spec:
               resources:
                 requests:
                   storage: 10Gi
-              storageClassName: rbd
+              storageClassName: tess
       service:
         nodePort: 30008
         type: NodePort
@@ -649,6 +659,7 @@ spec:
   targetNamespace: lma
   values:
     nodeSelector:
+      TO_BE_FIXED: TO_BE_FIXED
       taco-lma: enabled
     prometheus:
       port: 9090
@@ -674,17 +685,12 @@ spec:
     alertmanager:
       alertmanagerSpec:
         nodeSelector:
+          TO_BE_FIXED: TO_BE_FIXED
           taco-lma: enabled
         retention: 120h
       config:
         global:
-          hipchat_api_url: null
-          hipchat_auth_token: null
           slack_api_url: https://hooks.slack.com/services/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
-          smtp_auth_password: null
-          smtp_auth_username: null
-          smtp_from: null
-          smtp_smarthost: null
         receivers:
         - name: default-alert
           slack_configs:
@@ -703,11 +709,7 @@ spec:
                 {{ range .Alerts.Resolved }}- {{ .Labels.alertname }}: {{ .Annotations.message }}
               {{ end }}{{ end }}
               {{ end }}
-            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing
-              | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved)
-              0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1))
-              }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range
-              .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
+            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
             username: Prometheus
         - name: slack-alert
           slack_configs:
@@ -726,11 +728,7 @@ spec:
                 {{ range .Alerts.Resolved }}- {{ .Labels.alertname }}: {{ .Annotations.message }}
               {{ end }}{{ end }}
               {{ end }}
-            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing
-              | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved)
-              0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1))
-              }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range
-              .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
+            title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ if or (and (eq (len .Alerts.Firing) 1) (eq (len.Alerts.Resolved) 0)) (and (eq (len .Alerts.Firing) 0) (eq (len .Alerts.Resolved) 1)) }} {{ range .Alerts.Firing }}{{ .Labels.alertname }}{{ end }}{{ range .Alerts.Resolved }}{{ .Labels.alertname }}{{ end }}{{ end }}'
             username: Prometheus
         - name: telegram-alert
           webhook_configs:
@@ -779,6 +777,7 @@ spec:
         externalLabels:
           taco_cluster: federation-master
         nodeSelector:
+          TO_BE_FIXED: TO_BE_FIXED
           taco-lma: enabled
         replicas: 1
         ruleNamespaceSelector:
@@ -797,7 +796,7 @@ spec:
               resources:
                 requests:
                   storage: 500Gi
-              storageClassName: rbd
+              storageClassName: tess
       service:
         nodePort: 30018
         type: NodePort
@@ -874,6 +873,7 @@ spec:
       createCustomResource: true
       enabled: true
       nodeSelector:
+        TO_BE_FIXED: TO_BE_FIXED
         taco-lma: enabled
   wait: true
 ---
@@ -906,8 +906,7 @@ spec:
           daemonsets:
             process_exporter:
               max_unavailable: 30%
-      mandatory_access_control:
-        type: null
+      mandatory_access_control: {}
       tolerations:
         process_exporter:
           enabled: true
@@ -933,6 +932,7 @@ spec:
   targetNamespace: lma
   values:
     nodeSelector:
+      TO_BE_FIXED: TO_BE_FIXED
       taco-lma: enabled
     service:
       nodePort: 30010
