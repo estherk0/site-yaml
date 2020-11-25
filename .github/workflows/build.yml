@@ -48,4 +48,16 @@ jobs:
                fi
                docker rm -f kustomize-build-$APP_NAME
             done
+            rm -rf $APP_NAME/base
           done
+
+          rm -rf decapod-yaml
+
+      - uses: EndBug/add-and-commit@v5
+        with:
+          message: "Auto-built output manifests committed by Github Action"
+          add: "*-manifest.yaml"
+          cwd: "./"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
