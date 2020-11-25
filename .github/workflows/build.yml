@@ -22,11 +22,11 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Fetch base yaml from git
-        run: git clone https://github.com/openinfradev/decapod-yaml.git
+        run: git clone -b correct_values_type https://github.com/openinfradev/decapod-yaml.git
 
       - name: Run kustomize build
         run: |
-          for APP_NAME in 'lma openstack'
+          for APP_NAME in 'lma'
           do
             echo ">>> Start to build for $APP_NAME <<<"
             cp -r decapod-yaml/$APP_NAME/base $APP_NAME
@@ -38,7 +38,7 @@ jobs:
                rm -f $OUTPUT_PATH
                mkdir -p $APP_NAME/output/$i/
                echo "[$i] Rendering $APP_NAME-manifest.yaml for $i site"
-               docker run -it -v $(pwd)/$APP_NAME:/$APP_NAME --name kustomize-build-$APP_NAME sktdev/decapod-kustomize:latest kustomize build --enable_alpha_plugins /$APP_NAME/site/$i -o /$APP_NAME/output/$i/$APP_NAME-manifest.yaml;
+               docker run -i -v $(pwd)/$APP_NAME:/$APP_NAME --name kustomize-build-$APP_NAME sktdev/decapod-kustomize:latest kustomize build --enable_alpha_plugins /$APP_NAME/site/$i -o /$APP_NAME/output/$i/$APP_NAME-manifest.yaml;
          
                if [ -f "$OUTPUT_PATH" ]; then
                  echo "[$i] Successfully Completed!"
